@@ -14,7 +14,7 @@ Node 24 LTS atende aos requisitos declarados do Next.js, Prisma 7 e Vitest. Pris
 | `src/lib/` | Funções puras de serialização/apresentação de centavos. |
 | `prisma/schema.prisma` | Entidades, relações, tipos e índices. |
 | `prisma/migrations/` | Evolução SQL versionada do banco MySQL. |
-| `compose.yaml` e `Dockerfile` | Aplicação Node 24 e MySQL 8.4 isolados de outros projetos. |
+| `compose.yaml` e `Dockerfile` | Aplicação Node 24, MySQL 8.4 e phpMyAdmin isolados de outros projetos. |
 
 Quando os fluxos forem autorizados, handlers/Server Actions receberão e validarão entradas, obterão o usuário da sessão e chamarão serviços de aplicação. Os serviços concentrarão regras financeiras; componentes React cuidarão apenas da apresentação. Prisma Client fará consultas e persistência, sem Repository Pattern inicial.
 
@@ -35,7 +35,7 @@ Esses fluxos ainda **não estão implementados**. Prisma não oferece uma API de
 
 ## Ambiente e limites
 
-O Compose usa o nome `wallet-node`, uma rede própria, `mysql-data` para persistência e `node-modules` para dependências Linux. Somente `127.0.0.1:3010` e `127.0.0.1:3311` são publicados. A porta 3310 proposta inicialmente já pertencia a outro container local; ele não foi alterado. Senhas residem no `.env` local; a imagem não as inclui. A URL MySQL é montada pelo Compose e fornecida ao Prisma no container. Em `prisma.config.ts`, uma URL vazia permite apenas gerar a imagem sem segredo; comandos que acessam o banco exigem `DATABASE_URL` configurada.
+O Compose usa o nome `wallet-node`, uma rede própria, `mysql-data` para persistência e `node-modules` para dependências Linux. Somente `127.0.0.1:3010`, `127.0.0.1:3311` e `127.0.0.1:8091` são publicados. A porta 3310 proposta inicialmente já pertencia a outro container local; a porta 8090 solicitada para o phpMyAdmin pertence a `nexus_mail_dashboard`. Esses containers não foram alterados. O phpMyAdmin usa a rede do MySQL Node e login interativo por cookie, sem volume ou senha próprios. Senhas residem no `.env` local; a imagem da aplicação não as inclui. A URL MySQL é montada pelo Compose e fornecida ao Prisma no container. Em `prisma.config.ts`, uma URL vazia permite apenas gerar a imagem sem segredo; comandos que acessam o banco exigem `DATABASE_URL` configurada.
 
 Ainda não há reconciliação de alterações manuais no banco, testes de concorrência nem autenticação. O modelo Prisma representa relações e unicidades, mas não exige que todo usuário tenha carteira antes da rotina transacional de cadastro. Chaves idempotentes usarão UUID canônico minúsculo para evitar diferenças de collation MySQL; o serviço futuro precisará comparar o conteúdo da solicitação, não apenas a chave.
 

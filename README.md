@@ -12,7 +12,7 @@ O Next.js reúne interface e futuras rotas de servidor no mesmo projeto. **NestJ
 
 ## Requisitos e inicialização
 
-Use Docker Desktop com backend Linux e Docker Compose. As portas `3010` e `3311` devem estar livres. Não é necessário ter Node.js instalado no Windows: a imagem oficial Node 24 executa npm e a aplicação.
+Use Docker Desktop com backend Linux e Docker Compose. As portas `3010`, `3311` e `8091` devem estar livres. Não é necessário ter Node.js instalado no Windows: a imagem oficial Node 24 executa npm e a aplicação.
 
 No diretório `wallet-node`, crie o ambiente local e preencha `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD` com senhas fortes, distintas e exclusivas do desenvolvimento. Para a URL de conexão construída pelo Compose, use caracteres seguros para URL (letras, números, `-` e `_`). O `.env` é ignorado pelo Git.
 
@@ -27,6 +27,20 @@ docker compose exec app npm run db:generate
 O arquivo `.env` local preparado nesta máquina já contém senhas próprias; preserve-o se for reutilizar esta instalação. Em uma instalação nova, `prisma migrate deploy` aplica as migrations versionadas sem apagar dados. O MySQL usa volume próprio deste Compose.
 
 Abra **http://localhost:3010**. O MySQL aceita conexões externas somente em `127.0.0.1:3311`, com o usuário de desenvolvimento configurado no `.env`. A aplicação usa `mysql:3306` na rede interna. Este Compose tem nome `wallet-node` e não utiliza containers, portas ou volumes de `wallet-php`.
+
+### Inspecionar o banco com phpMyAdmin
+
+O phpMyAdmin está disponível em **http://localhost:8091**, somente no próprio computador. A porta 8090 prevista inicialmente já é usada por `nexus_mail_dashboard`; a alternativa 8091 evita alterar esse container. O phpMyAdmin acessa apenas o serviço `mysql:3306` da rede deste projeto e usa autenticação interativa por cookie. Entre com o usuário de desenvolvimento `MYSQL_USER` e a senha `MYSQL_PASSWORD` do seu `.env` local; não há login automático. Selecione `wallet_node_challenge` no menu lateral para inspecionar `users`, `wallets`, `operations` e `ledger_entries`. Este banco é exclusivamente de desenvolvimento.
+
+Para iniciar ou parar apenas o phpMyAdmin, com o MySQL já saudável:
+
+```powershell
+docker compose up -d phpmyadmin
+docker compose stop phpmyadmin
+docker compose start phpmyadmin
+```
+
+Para iniciar todos os serviços em uma instalação nova, use `docker compose up -d --build --wait`, conforme acima. Para parar os serviços deste projeto sem remover o banco, use `docker compose stop`.
 
 ## Modelagem
 

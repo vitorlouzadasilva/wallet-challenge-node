@@ -11,3 +11,4 @@
 - Não versionar `.env`, credenciais, `node_modules`, arquivos gerados, logs ou dados persistentes do Docker.
 - Nesta etapa, implementar apenas infraestrutura, esquema, documentação e apresentação monetária. Não criar cadastro, login, depósito, transferência ou reversão funcionais.
 - Não executar `docker compose down -v`, reset de migrations ou exclusão de volumes sem autorização.
+- O phpMyAdmin foi autorizado nesta etapa de infraestrutura: manter imagem oficial fixada, acesso somente em loopback e login interativo, sem credenciais no Compose.
