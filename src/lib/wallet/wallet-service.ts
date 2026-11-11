@@ -148,8 +148,9 @@ export class WalletService {
       const reversal = await transaction.operation.create({
         data: {
           initiatedByUserId: actorId, type: "reversal", status: "completed",
-          amountCents: original.amount_cents, sourceWalletId: original.source_wallet_id,
-          destinationWalletId: original.destination_wallet_id,
+          // Na reversão, participantes descrevem o fluxo compensatório dos lançamentos.
+          amountCents: original.amount_cents, sourceWalletId: original.destination_wallet_id,
+          destinationWalletId: original.source_wallet_id,
           reversalOfOperationId: original.id, idempotencyKey: request.idempotencyKey,
         },
       });

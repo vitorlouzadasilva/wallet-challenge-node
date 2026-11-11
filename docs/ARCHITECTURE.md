@@ -2,7 +2,7 @@
 
 ## Escopo atual
 
-O projeto usa um único processo Next.js com App Router para interface e Server Actions de autenticação. A escolha reduz a operação local a uma aplicação e um MySQL. NestJS acrescentaria um serviço e um contrato de comunicação sem necessidade nesta fase. Cadastro, login, logout, dashboard e serviço financeiro estão implementados; as movimentações ainda não têm entrada HTTP ou interface.
+O projeto usa um único processo Next.js com App Router para interface e Server Actions. A escolha reduz a operação local a uma aplicação e um MySQL. NestJS acrescentaria um serviço e um contrato de comunicação sem necessidade nesta fase. Cadastro, login, logout, dashboard, ações financeiras e extrato estão implementados.
 
 Node 24 LTS atende aos requisitos declarados do Next.js, Prisma 7 e Vitest. Prisma 7 é a versão escolhida para MySQL: a documentação oficial ainda apresenta Prisma 8 como candidato a lançamento e informa que seu suporte a MySQL virá depois. As versões diretas são fixas e o lockfile registra a árvore efetiva.
 
@@ -10,15 +10,15 @@ Node 24 LTS atende aos requisitos declarados do Next.js, Prisma 7 e Vitest. Pris
 
 | Caminho | Responsabilidade |
 | --- | --- |
-| `src/app/` | Páginas inicial, cadastro, login e dashboard; Server Actions para escrita. |
+| `src/app/` | Páginas, formulários e Server Actions para autenticação e movimentações. |
 | `src/lib/auth/` | Validação, cadastro, autenticação, limite de tentativas e sessões. |
-| `src/lib/wallet/` | Casos de uso financeiros, erros de domínio e testes reais no MySQL. |
+| `src/lib/wallet/` | Casos de uso financeiros, extrato, erros de domínio e testes reais no MySQL. |
 | `src/lib/` | Prisma Client com adapter MySQL e apresentação de centavos. |
 | `prisma/schema.prisma` | Entidades, relações, tipos e índices. |
 | `prisma/migrations/` | Evolução SQL versionada do banco MySQL. |
 | `compose.yaml` e `Dockerfile` | Aplicação Node 24, MySQL 8.4 e phpMyAdmin isolados de outros projetos. |
 
-As Server Actions atuais recebem e validam entradas de autenticação e definem o cookie. Componentes React apresentam dados e mensagens. O Prisma Client com adapter MariaDB consulta e persiste no MySQL, sem Repository Pattern. `WalletService` concentra os casos financeiros sem depender de React ou HTTP. A integração web futura deverá obter `FinancialActor` da sessão validada; objetos com IDs enviados pelo cliente não passam pela verificação do ator.
+As Server Actions recebem e validam entradas, enquanto componentes React apresentam dados e mensagens. O Prisma Client com adapter MariaDB consulta e persiste no MySQL, sem Repository Pattern. `WalletService` concentra os casos financeiros sem depender de React ou HTTP. Cada ação financeira obtém `FinancialActor` da sessão validada; objetos com IDs enviados pelo cliente não passam pela verificação do ator.
 
 ## Autenticação e autorização atuais
 
@@ -32,7 +32,7 @@ Os testes unitários não acessam MySQL. O comando `test:integration` exige `wal
 
 ## Integridade e valores monetários
 
-Os IDs e valores em centavos são `BIGINT` no banco e `bigint` em TypeScript. `Number` só é seguro até `Number.MAX_SAFE_INTEGER` e não pode representar todo o intervalo assinado de 64 bits. Toda serialização JSON de centavos ou IDs deve usar `toString()` e toda entrada monetária futura deverá ser validada como texto antes de virar `bigint`. `formatCents()` formata por dígitos; não usa `float`, divisão por `100` convertida em `Number` nem arredondamento. Datas devem ser gravadas em UTC e apresentadas no fuso da interface.
+Os IDs e valores em centavos são `BIGINT` no banco e `bigint` em TypeScript. `Number` só é seguro até `Number.MAX_SAFE_INTEGER` e não pode representar todo o intervalo assinado de 64 bits. IDs passados a Client Components usam `toString()`. `parsePositiveReais()` limita comprimento e formato antes de construir `bigint`, e `formatCents()` formata por dígitos; ambos dispensam ponto flutuante. Datas são gravadas em UTC e apresentadas no fuso `America/Sao_Paulo` no extrato.
 
 `wallets.user_id` é único, garantindo no máximo uma carteira por usuário. A rotina de cadastro cria usuário e carteira na mesma transação. Saldos podem ficar negativos; valores de operação precisam ser positivos. A migration acrescenta `CHECK` para `operations.amount_cents > 0` e `ledger_entries.delta_cents <> 0`, além de FKs e índices do Prisma. `reversal_of_operation_id` é único e nullable; vários registros comuns podem ter `NULL`, mas uma original só pode ser referenciada por uma reversão. FKs usam exclusão e atualização restritivas.
 
@@ -44,6 +44,14 @@ Os IDs e valores em centavos são `BIGINT` no banco e `bigint` em TypeScript. `N
 - **Idempotência:** a chave UUID canônica minúscula é obrigatória e globalmente única. Repetições com mesmo ator e conteúdo retornam a operação existente, mesmo que a original já esteja revertida. Colisões diferentes geram conflito sem expor dados alheios. A restrição SQL é a garantia final sob concorrência; a tentativa perdedora consulta o vencedor apenas depois do rollback.
 
 O serviço usa `$queryRaw` parametrizado na mesma transação Prisma para os locks `FOR UPDATE`. Erros reconhecidos de deadlock/conflito de escrita permitem até três tentativas da unidade transacional completa; violação de unicidade é tratada depois do rollback. Erros de domínio têm mensagens seguras, e erros inesperados não são convertidos em sucesso. Os testes de concorrência usam Prisma Clients e conexões independentes para transferências, idempotência e reversões. Eles cobrem disputas concretas, sem provar todos os cenários possíveis. `CHECK`s não substituem a lógica transacional nem verificam sozinhos a coerência entre saldos e lançamentos.
+
+## Integração web e extrato
+
+`src/app/actions/wallet.ts` valida a sessão em cada chamada e recebe somente valor textual, e-mail de destinatário, ID da operação a reverter e chave idempotente. A origem e o ator vêm do servidor. O e-mail é normalizado, a carteira do destinatário é buscada no banco e o serviço mantém a validação final. Falhas de domínio retornam mensagens seguras; erros inesperados seguem para o mecanismo de diagnóstico do Next.js. Após sucesso, a ação revalida `/dashboard` e redireciona fora do bloco `try/catch`. A mensagem de conclusão é mostrada somente quando o ID da URL corresponde a uma operação do ator autenticado.
+
+O formulário recebe um UUID novo no render do servidor. `useActionState` preserva chave e entradas quando há falha; um novo dashboard após sucesso recebe novas chaves. O banco continua garantindo unicidade e replay. A confirmação visual de reversão melhora a experiência, mas a autorização é sempre conferida pelo serviço.
+
+`loadStatement()` obtém a carteira pelo ator validado e filtra `ledger_entries.wallet_id`. A consulta carrega operações e tipo da original em relações, com dez itens por página. O sinal e o texto monetário vêm de `delta_cents`, inclusive para reversões anteriores à convenção atual. Novas reversões de transferência invertem origem e destino; na reversão de depósito, a carteira creditada originalmente passa a ser origem e o destino fica nulo. Nenhum registro antigo é reescrito.
 
 ## Ambiente e limites
 

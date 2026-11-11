@@ -180,6 +180,7 @@ describe("WalletService com MySQL isolado", () => {
     const reversalKey = key();
     const request = { actor: owner.actor, originalOperationId: deposited.id, idempotencyKey: reversalKey };
     const reversed = await service.reverse(request);
+    expect(reversed).toMatchObject({ sourceWalletId: owner.walletId, destinationWalletId: null, reversalOfOperationId: deposited.id });
     expect((await service.reverse(request)).id).toBe(reversed.id);
     expect(await balance(owner.walletId)).toBe(0n);
     expect((await prisma.operation.findUniqueOrThrow({ where: { id: deposited.id } })).status).toBe("reversed");
@@ -200,6 +201,7 @@ describe("WalletService com MySQL isolado", () => {
     await service.transfer({ actor: recipient.actor, destinationWalletId: third.walletId, amountCents: 100n, idempotencyKey: key() });
     const originalEntries = await prisma.ledgerEntry.findMany({ where: { operationId: transfer.id }, orderBy: { walletId: "asc" } });
     const reversal = await service.reverse({ actor: sender.actor, originalOperationId: transfer.id, idempotencyKey: key() });
+    expect(reversal).toMatchObject({ sourceWalletId: recipient.walletId, destinationWalletId: sender.walletId, reversalOfOperationId: transfer.id });
     const compensating = await prisma.ledgerEntry.findMany({ where: { operationId: reversal.id } });
     expect(compensating).toHaveLength(2);
     for (const original of originalEntries) {

@@ -62,5 +62,29 @@ h1 { letter-spacing: -.045em; }
 .balance-icon { display: grid; place-items: center; width: 5rem; height: 5rem; border: 1px solid #91c4a4; border-radius: 1rem; color: #c3ebd0; font-weight: 800; }
 .upcoming-card { margin-top: 1.2rem; padding: 2rem; }
 .upcoming-card h2 { margin: .6rem 0; }
-@media (max-width: 800px) { .hero, .auth-page { grid-template-columns: 1fr; gap: 2rem; } .home-page { padding-top: 3rem; } .feature-grid { grid-template-columns: 1fr; margin-top: 2rem; } .auth-page { align-items: start; } }
-@media (max-width: 520px) { .shell { width: min(100% - 2rem, 1120px); } .header-note { display: none; } .auth-card { padding: 1.4rem; } .dashboard-top { display: block; } .account-nav { justify-content: space-between; margin-top: 1.5rem; } .balance-icon { display: none; } }
+.success-message { margin: 1.5rem 0 0; padding: .9rem 1rem; border: 1px solid #a8d5ba; border-radius: .7rem; background: #e9f8ee; color: #14563b; font-weight: 700; }
+.wallet-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; margin-top: 1.2rem; }
+.wallet-card, .statement-card { padding: 1.7rem; border: 1px solid #dce9e1; border-radius: 1rem; background: white; }
+.wallet-card h2, .statement-card h2 { margin: .5rem 0; font-size: 1.35rem; }
+.wallet-card > p { color: #61756a; }
+.wallet-form { display: grid; gap: 1rem; margin-top: 1.4rem; }
+.wallet-form .button { justify-self: start; }
+.statement-card { margin-top: 1.2rem; }
+.statement-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+.statement-heading > span { color: #61756a; font-size: .9rem; }
+.statement-list { list-style: none; padding: 0; margin: .8rem 0 0; }
+.statement-item { display: flex; justify-content: space-between; gap: 1.5rem; padding: 1.2rem 0; border-top: 1px solid #e6eee9; }
+.statement-main, .statement-side { display: grid; gap: .35rem; }
+.statement-main span, .statement-main small { color: #61756a; }
+.statement-side { text-align: right; justify-items: end; align-content: start; }
+.statement-side > strong { font-size: 1.08rem; white-space: nowrap; }
+.amount-credit { color: #167247; }
+.amount-debit { color: #a73b3b; }
+.reverse-button { padding: .3rem .55rem; border: 1px solid #b8cfc0; border-radius: .4rem; background: #fff; color: #185b45; cursor: pointer; font-weight: 700; }
+.reverse-button:hover { background: #eef7f1; }
+.reverse-button:disabled { opacity: .6; cursor: wait; }
+.empty-statement { margin: 1rem 0 0; color: #61756a; }
+.statement-pagination { display: flex; justify-content: center; gap: 1rem; align-items: center; padding-top: 1rem; border-top: 1px solid #e6eee9; }
+.statement-pagination a { color: #185b45; font-weight: 700; }
+@media (max-width: 800px) { .hero, .auth-page, .wallet-actions { grid-template-columns: 1fr; gap: 2rem; } .home-page { padding-top: 3rem; } .feature-grid { grid-template-columns: 1fr; margin-top: 2rem; } .auth-page { align-items: start; } }
+@media (max-width: 520px) { .shell { width: min(100% - 2rem, 1120px); } .header-note { display: none; } .auth-card { padding: 1.4rem; } .dashboard-top { display: block; } .account-nav { justify-content: space-between; margin-top: 1.5rem; } .balance-icon { display: none; } .statement-item { display: grid; gap: .7rem; } .statement-side { text-align: left; justify-items: start; } }

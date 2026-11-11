@@ -7,6 +7,10 @@ export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export function validEmail(email: string): boolean {
+  return email.length <= 255 && emailPattern.test(email);
+}
+
 export function validateRegistration(input: {
   name: string;
   email: string;

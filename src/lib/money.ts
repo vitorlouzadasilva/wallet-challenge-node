@@ -11,3 +11,14 @@ export function formatCents(cents: bigint): string {
 
   return `${negative ? "-" : ""}R$ ${whole},${digits.slice(-2)}`;
 }
+
+/** Aceita reais sem separador de milhar e devolve centavos positivos exatos. */
+export function parsePositiveReais(input: string): bigint | null {
+  if (typeof input !== "string" || input.length > 20) return null;
+  const value = input;
+  if (!/^(?:0|[1-9]\d{0,16})(?:,\d{1,2})?$/.test(value)) return null;
+
+  const [reais, fraction = ""] = value.split(",");
+  const cents = BigInt(reais) * 100n + BigInt(fraction.padEnd(2, "0") || "0");
+  return cents > 0n && cents <= (1n << 63n) - 1n ? cents : null;
+}

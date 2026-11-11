@@ -1,6 +1,6 @@
 # Wallet Node
 
-Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É possível criar uma conta, entrar, consultar o saldo da própria carteira e sair. O núcleo de depósitos, transferências e reversões está implementado e testado no servidor; formulários financeiros e extrato visual ainda não estão disponíveis.
+Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É possível criar uma conta, entrar, consultar o saldo da própria carteira, depositar, transferir por e-mail, consultar o extrato e solicitar reversões elegíveis.
 
 ## Stack e escolha arquitetural
 
@@ -33,7 +33,13 @@ Abra **http://localhost:3010**. O MySQL aceita conexões externas somente em `12
 
 Abra a página inicial, escolha **Criar conta** e informe nome, e-mail, senha com pelo menos 12 caracteres e confirmação. O cadastro cria o usuário e a carteira com saldo zero na mesma transação. Em seguida, o navegador recebe uma sessão e vai para `/dashboard`. Para retornar, use **Sair**; depois, entre novamente em `/login` com e-mail e senha. O dashboard mostra somente a carteira associada à sessão atual.
 
-As páginas são `/`, `/register`, `/login` e `/dashboard`. As ações de cadastro, login e logout usam Server Actions do Next.js. O dashboard redireciona visitantes para `/login`.
+As páginas são `/`, `/register`, `/login` e `/dashboard`. Cadastro, login, logout e movimentações usam Server Actions do Next.js. O dashboard redireciona visitantes para `/login`.
+
+### Movimentar a carteira
+
+No dashboard, informe um valor como `10,50` no formulário **Depositar** para creditar sua própria carteira. Para **Transferir**, informe o e-mail de outro usuário cadastrado e o valor. O extrato mostra dez lançamentos por página, incluindo entradas, saídas e reversões. O iniciador de um depósito ou transferência concluído pode escolher **Reverter** e confirmar a solicitação; uma reversão de transferência pode deixar o destinatário com saldo negativo.
+
+Cada novo formulário recebe um UUID no servidor. Se a validação falhar, a mesma chave permanece no formulário; repetir um envio já confirmado retorna o resultado anterior sem novo efeito. Após sucesso, o navegador retorna ao dashboard atualizado. Os campos de valor aceitam reais sem separador de milhares e até duas casas decimais, por exemplo `10`, `10,5`, `10,50` e `0,01`.
 
 ### Inspecionar o banco com phpMyAdmin
 
@@ -53,7 +59,7 @@ Para iniciar todos os serviços em uma instalação nova, use `docker compose up
 
 `prisma/schema.prisma` define `users`, `wallets`, `operations` e `ledger_entries`. Uma carteira possui `user_id` único; cada operação guarda tipo, situação, valor positivo, participantes, chave idempotente única e referência opcional e única à operação revertida. Lançamentos registram deltas positivos ou negativos e têm unicidade por operação/carteira. FKs restritivas impedem cascatas sobre histórico financeiro.
 
-Valores e IDs financeiros usam `BIGINT` no MySQL e `bigint` no JavaScript. `balance_cents` e `delta_cents` são assinados, permitindo saldo negativo; `amount_cents` é positivo. `bigint` não pode ser enviado diretamente a `JSON.stringify`: a API futura deverá converter os valores para **strings decimais**, e a interface os formatará sem ponto flutuante. `src/lib/money.ts` já oferece funções puras de serialização e apresentação, com testes de limites.
+Valores e IDs financeiros usam `BIGINT` no MySQL e `bigint` no JavaScript. `balance_cents` e `delta_cents` são assinados, permitindo saldo negativo; `amount_cents` é positivo. `bigint` não pode ser enviado diretamente a `JSON.stringify`: componentes interativos recebem IDs como **strings decimais**. `src/lib/money.ts` converte e apresenta centavos sem ponto flutuante, com testes de limites.
 
 Consulte [Arquitetura](docs/ARCHITECTURE.md), [Regras de negócio](docs/BUSINESS_RULES.md) e [Decisões técnicas](docs/TECHNICAL_DECISIONS.md) para os contratos atuais e os próximos passos.
 
@@ -61,7 +67,7 @@ Consulte [Arquitetura](docs/ARCHITECTURE.md), [Regras de negócio](docs/BUSINESS
 
 `src/lib/wallet/wallet-service.ts` oferece `deposit()`, `transfer()` e `reverse()`. Cada método recebe um ator criado por `currentFinancialActor()` após validação da sessão, uma chave UUID idempotente e os dados específicos: valor `bigint` em centavos, carteira de destino ou ID da operação original. A origem nunca é escolhida pelo cliente. O serviço valida saldo, autorização e limites de `BIGINT`, registra operação e lançamentos e atualiza saldos em uma transação Prisma.
 
-O MySQL bloqueia as carteiras com `SELECT ... FOR UPDATE` em ordem crescente de ID; reversões bloqueiam primeiro a operação original. A chave única de operação impede efeitos duplicados mesmo em corridas. Reversões criam lançamentos compensatórios e preservam o histórico original. Não há rotas, Server Actions ou botões financeiros nesta etapa: esses métodos serão ligados à interface somente na próxima revisão.
+O MySQL bloqueia as carteiras com `SELECT ... FOR UPDATE` em ordem crescente de ID; reversões bloqueiam primeiro a operação original. A chave única de operação impede efeitos duplicados mesmo em corridas. Reversões criam lançamentos compensatórios e preservam o histórico original. `src/app/actions/wallet.ts` valida a sessão e conecta os formulários ao serviço; `src/lib/wallet/statement.ts` consulta apenas os lançamentos da carteira autenticada.
 
 ## Validações e testes
 
@@ -94,7 +100,7 @@ O login limita tentativas por identidade e por um limite global persistido no ba
 
 ## Limitações desta etapa
 
-- O cadastro, o login, o dashboard e o serviço financeiro estão implementados; formulários, Server Actions financeiros e extrato visual virão depois.
+- Cadastro, login, dashboard, serviço financeiro, formulários e extrato estão implementados. Não há integrações bancárias reais, PIX ou recuperação de senha.
 - O cadastro cria a carteira junto com o usuário na mesma transação; cadastros externos ao fluxo ainda podem criar usuários sem carteira.
 - O banco aplica FKs, unicidade e restrições monetárias; o serviço aplica saldo, autorização e estados, mas escritas manuais no banco podem contornar essas regras.
 - Há testes reais de concorrência para os cenários selecionados; carga elevada e todos os interleavings possíveis permanecem em validação. Não há integração bancária real.
