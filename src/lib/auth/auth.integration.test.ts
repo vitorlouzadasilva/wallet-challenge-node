@@ -20,11 +20,16 @@ import { validateRegistration } from "./validation";
 const password = "senha-segura-123";
 const uniqueEmail = () => `${randomUUID()}@example.test`;
 
-beforeAll(() => {
+beforeAll(async () => {
   const url = process.env.DATABASE_URL;
   if (process.env.WALLET_INTEGRATION_TEST !== "1" || !url || new URL(url).pathname !== "/wallet_node_test") {
     throw new Error("Teste bloqueado fora de wallet_node_test.");
   }
+
+  // O limite global persiste entre execuções; reiniciá-lo apenas no banco isolado evita interferência nos testes.
+  await prisma.loginAttempt.deleteMany({
+    where: { keyHash: createHash("sha256").update("global:login").digest("hex") },
+  });
 });
 
 describe("autenticação com MySQL isolado", () => {

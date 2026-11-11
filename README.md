@@ -1,6 +1,6 @@
 # Wallet Node
 
-Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É possível criar uma conta, entrar, consultar o saldo inicial da própria carteira e sair. Depósitos, transferências, reversões e extrato ainda não estão disponíveis.
+Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É possível criar uma conta, entrar, consultar o saldo da própria carteira e sair. O núcleo de depósitos, transferências e reversões está implementado e testado no servidor; formulários financeiros e extrato visual ainda não estão disponíveis.
 
 ## Stack e escolha arquitetural
 
@@ -9,7 +9,7 @@ Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É
 - Bcrypt para senhas e sessões opacas persistidas no MySQL.
 - ESLint com configuração oficial do Next.js. Versões diretas fixadas em `package.json` e árvore resolvida em `package-lock.json`.
 
-O Next.js reúne interface e futuras rotas de servidor no mesmo projeto. **NestJS não foi adicionado** porque acrescentaria outro processo e outra estrutura para um desafio que pode ser atendido com o App Router. As regras financeiras futuras ainda terão uma camada de casos de uso separada dos componentes de interface. Prisma 7 foi escolhido porque a linha 8 ainda não oferece MySQL estável nesta data.
+O Next.js reúne interface e rotas de servidor no mesmo projeto. **NestJS não foi adicionado** porque acrescentaria outro processo e outra estrutura para um desafio que pode ser atendido com o App Router. As regras financeiras ficam em uma camada de casos de uso separada dos componentes de interface. Prisma 7 foi escolhido porque a linha 8 ainda não oferece MySQL estável nesta data.
 
 ## Requisitos e inicialização
 
@@ -55,7 +55,13 @@ Para iniciar todos os serviços em uma instalação nova, use `docker compose up
 
 Valores e IDs financeiros usam `BIGINT` no MySQL e `bigint` no JavaScript. `balance_cents` e `delta_cents` são assinados, permitindo saldo negativo; `amount_cents` é positivo. `bigint` não pode ser enviado diretamente a `JSON.stringify`: a API futura deverá converter os valores para **strings decimais**, e a interface os formatará sem ponto flutuante. `src/lib/money.ts` já oferece funções puras de serialização e apresentação, com testes de limites.
 
-Consulte [Arquitetura](docs/ARCHITECTURE.md) e [Regras de negócio](docs/BUSINESS_RULES.md) para o desenho planejado de autenticação, transações, reversões e idempotência.
+Consulte [Arquitetura](docs/ARCHITECTURE.md), [Regras de negócio](docs/BUSINESS_RULES.md) e [Decisões técnicas](docs/TECHNICAL_DECISIONS.md) para os contratos atuais e os próximos passos.
+
+## Núcleo financeiro no servidor
+
+`src/lib/wallet/wallet-service.ts` oferece `deposit()`, `transfer()` e `reverse()`. Cada método recebe um ator criado por `currentFinancialActor()` após validação da sessão, uma chave UUID idempotente e os dados específicos: valor `bigint` em centavos, carteira de destino ou ID da operação original. A origem nunca é escolhida pelo cliente. O serviço valida saldo, autorização e limites de `BIGINT`, registra operação e lançamentos e atualiza saldos em uma transação Prisma.
+
+O MySQL bloqueia as carteiras com `SELECT ... FOR UPDATE` em ordem crescente de ID; reversões bloqueiam primeiro a operação original. A chave única de operação impede efeitos duplicados mesmo em corridas. Reversões criam lançamentos compensatórios e preservam o histórico original. Não há rotas, Server Actions ou botões financeiros nesta etapa: esses métodos serão ligados à interface somente na próxima revisão.
 
 ## Validações e testes
 
@@ -71,7 +77,7 @@ docker compose exec app npm run test:integration
 docker compose exec app npm run build
 ```
 
-`npm test` roda testes unitários sem gravar no banco. `npm run test:integration` recusa o banco de desenvolvimento, aplica migrations somente em `wallet_node_test` e executa cenários reais de cadastro, login, sessões, limite de tentativas e isolamento. Para preparar esse banco uma vez, abra o cliente MySQL local com `docker compose exec mysql mysql -u root -p`, informe a senha root local e execute:
+`npm test` roda testes unitários sem gravar no banco. `npm run test:integration` recusa o banco de desenvolvimento, aplica migrations somente em `wallet_node_test` e executa cenários reais de autenticação e operações financeiras. Inclui disputas simultâneas com dois Prisma Clients independentes. Para preparar esse banco uma vez, abra o cliente MySQL local com `docker compose exec mysql mysql -u root -p`, informe a senha root local e execute:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS wallet_node_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -88,10 +94,10 @@ O login limita tentativas por identidade e por um limite global persistido no ba
 
 ## Limitações desta etapa
 
-- O cadastro, o login e a consulta de saldo estão implementados; depósitos, transferências, reversões e extrato virão depois.
+- O cadastro, o login, o dashboard e o serviço financeiro estão implementados; formulários, Server Actions financeiros e extrato visual virão depois.
 - O cadastro cria a carteira junto com o usuário na mesma transação; cadastros externos ao fluxo ainda podem criar usuários sem carteira.
-- O banco aplica FKs, unicidade e restrições monetárias; regras de saldo, autorização e estado ainda dependem dos casos de uso futuros.
-- Não há teste de concorrência nem integração bancária real nesta etapa.
+- O banco aplica FKs, unicidade e restrições monetárias; o serviço aplica saldo, autorização e estados, mas escritas manuais no banco podem contornar essas regras.
+- Há testes reais de concorrência para os cenários selecionados; carga elevada e todos os interleavings possíveis permanecem em validação. Não há integração bancária real.
 - Sem proxy confiável, não há limite individual por IP; o limite global pode afetar outros usuários se alguém esgotá-lo. Uma implantação pública deve acrescentar proteção de borda e configurar origem/cabeçalhos confiáveis.
 - A auditoria npm desta instalação apontou sete avisos moderados em dependências transitivas do ESLint; `npm audit --omit=dev` não apontou vulnerabilidades em dependências de produção. A cadeia depende de atualização compatível das ferramentas de desenvolvimento.
 

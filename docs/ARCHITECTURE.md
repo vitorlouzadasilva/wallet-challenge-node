@@ -2,7 +2,7 @@
 
 ## Escopo atual
 
-O projeto usa um único processo Next.js com App Router para interface e Server Actions de autenticação. A escolha reduz a operação local a uma aplicação e um MySQL. NestJS acrescentaria um serviço e um contrato de comunicação sem necessidade nesta fase. Cadastro, login, logout e dashboard estão implementados; não há movimentação financeira funcional.
+O projeto usa um único processo Next.js com App Router para interface e Server Actions de autenticação. A escolha reduz a operação local a uma aplicação e um MySQL. NestJS acrescentaria um serviço e um contrato de comunicação sem necessidade nesta fase. Cadastro, login, logout, dashboard e serviço financeiro estão implementados; as movimentações ainda não têm entrada HTTP ou interface.
 
 Node 24 LTS atende aos requisitos declarados do Next.js, Prisma 7 e Vitest. Prisma 7 é a versão escolhida para MySQL: a documentação oficial ainda apresenta Prisma 8 como candidato a lançamento e informa que seu suporte a MySQL virá depois. As versões diretas são fixas e o lockfile registra a árvore efetiva.
 
@@ -12,12 +12,13 @@ Node 24 LTS atende aos requisitos declarados do Next.js, Prisma 7 e Vitest. Pris
 | --- | --- |
 | `src/app/` | Páginas inicial, cadastro, login e dashboard; Server Actions para escrita. |
 | `src/lib/auth/` | Validação, cadastro, autenticação, limite de tentativas e sessões. |
+| `src/lib/wallet/` | Casos de uso financeiros, erros de domínio e testes reais no MySQL. |
 | `src/lib/` | Prisma Client com adapter MySQL e apresentação de centavos. |
 | `prisma/schema.prisma` | Entidades, relações, tipos e índices. |
 | `prisma/migrations/` | Evolução SQL versionada do banco MySQL. |
 | `compose.yaml` e `Dockerfile` | Aplicação Node 24, MySQL 8.4 e phpMyAdmin isolados de outros projetos. |
 
-As Server Actions recebem e validam entradas, chamam os casos de uso de autenticação e definem o cookie. Componentes React apresentam dados e mensagens. O Prisma Client com adapter MariaDB consulta e persiste no MySQL, sem Repository Pattern. Futuros fluxos financeiros obterão o usuário da sessão e terão seus próprios casos de uso.
+As Server Actions atuais recebem e validam entradas de autenticação e definem o cookie. Componentes React apresentam dados e mensagens. O Prisma Client com adapter MariaDB consulta e persiste no MySQL, sem Repository Pattern. `WalletService` concentra os casos financeiros sem depender de React ou HTTP. A integração web futura deverá obter `FinancialActor` da sessão validada; objetos com IDs enviados pelo cliente não passam pela verificação do ator.
 
 ## Autenticação e autorização atuais
 
@@ -33,21 +34,21 @@ Os testes unitários não acessam MySQL. O comando `test:integration` exige `wal
 
 Os IDs e valores em centavos são `BIGINT` no banco e `bigint` em TypeScript. `Number` só é seguro até `Number.MAX_SAFE_INTEGER` e não pode representar todo o intervalo assinado de 64 bits. Toda serialização JSON de centavos ou IDs deve usar `toString()` e toda entrada monetária futura deverá ser validada como texto antes de virar `bigint`. `formatCents()` formata por dígitos; não usa `float`, divisão por `100` convertida em `Number` nem arredondamento. Datas devem ser gravadas em UTC e apresentadas no fuso da interface.
 
-`wallets.user_id` é único, garantindo no máximo uma carteira por usuário. A rotina futura de cadastro deverá criar usuário e carteira na mesma transação. Saldos podem ficar negativos; valores de operação precisam ser positivos. A migration acrescenta `CHECK` para `operations.amount_cents > 0` e `ledger_entries.delta_cents <> 0`, além de FKs e índices do Prisma. `reversal_of_operation_id` é único e nullable; vários registros comuns podem ter `NULL`, mas uma original só pode ser referenciada por uma reversão. FKs usam exclusão e atualização restritivas.
+`wallets.user_id` é único, garantindo no máximo uma carteira por usuário. A rotina de cadastro cria usuário e carteira na mesma transação. Saldos podem ficar negativos; valores de operação precisam ser positivos. A migration acrescenta `CHECK` para `operations.amount_cents > 0` e `ledger_entries.delta_cents <> 0`, além de FKs e índices do Prisma. `reversal_of_operation_id` é único e nullable; vários registros comuns podem ter `NULL`, mas uma original só pode ser referenciada por uma reversão. FKs usam exclusão e atualização restritivas.
 
-## Casos de uso planejados
+## Casos de uso financeiros
 
 - **Autenticação:** cadastro, login, logout, sessão no MySQL, bcrypt, limite de tentativas e dashboard individual estão implementados. Recuperação de senha ainda não faz parte do escopo.
-- **Depósito e transferência:** transação SQL para operação, lançamentos e saldos. Bloqueio de carteiras por identificador crescente antes de ler o saldo; origem derivada do ator autenticado; saldo suficiente exigido para transferência.
-- **Reversão:** bloquear a original, confirmar tipo/estado e autorização do iniciador, bloquear carteiras em ordem, criar lançamentos compensatórios e mudar somente o status da original. A original e seus lançamentos permanecem auditáveis. A reversão pode deixar saldo negativo.
-- **Idempotência:** chave obrigatória e globalmente única por solicitação. Repetições com mesmo ator/conteúdo retornarão a operação confirmada; colisões diferentes gerarão conflito sem expor dados alheios. A restrição SQL será a garantia final sob concorrência, com recuperação apenas depois do rollback da tentativa perdedora.
+- **Depósito e transferência:** `WalletService` recebe centavos `bigint` e um `FinancialActor` gerado após validação da sessão. Uma transação `ReadCommitted` grava operação, lançamentos e saldos. `SELECT ... FOR UPDATE` bloqueia carteiras individualmente em ordem crescente de ID antes de ler os saldos. Transferência valida saldo após os locks.
+- **Reversão:** o serviço bloqueia a original antes de conferir autoria, tipo e status; lê participantes e lançamentos no banco; bloqueia as carteiras em ordem e cria lançamentos compensatórios. A original e seus lançamentos permanecem auditáveis. A reversão pode deixar saldo negativo.
+- **Idempotência:** a chave UUID canônica minúscula é obrigatória e globalmente única. Repetições com mesmo ator e conteúdo retornam a operação existente, mesmo que a original já esteja revertida. Colisões diferentes geram conflito sem expor dados alheios. A restrição SQL é a garantia final sob concorrência; a tentativa perdedora consulta o vencedor apenas depois do rollback.
 
-Os fluxos financeiros ainda **não estão implementados**. Prisma não oferece uma API de bloqueio `FOR UPDATE` de alto nível; quando a camada financeira for criada, o SQL de bloqueio deverá ser executado dentro da mesma transação Prisma, com consultas parametrizadas e testes em conexões independentes. `CHECK`s não substituem a lógica transacional nem verificam sozinhos a coerência entre saldos e lançamentos.
+O serviço usa `$queryRaw` parametrizado na mesma transação Prisma para os locks `FOR UPDATE`. Erros reconhecidos de deadlock/conflito de escrita permitem até três tentativas da unidade transacional completa; violação de unicidade é tratada depois do rollback. Erros de domínio têm mensagens seguras, e erros inesperados não são convertidos em sucesso. Os testes de concorrência usam Prisma Clients e conexões independentes para transferências, idempotência e reversões. Eles cobrem disputas concretas, sem provar todos os cenários possíveis. `CHECK`s não substituem a lógica transacional nem verificam sozinhos a coerência entre saldos e lançamentos.
 
 ## Ambiente e limites
 
 O Compose usa o nome `wallet-node`, uma rede própria, `mysql-data` para persistência e `node-modules` para dependências Linux. Somente `127.0.0.1:3010`, `127.0.0.1:3311` e `127.0.0.1:8091` são publicados. A porta 3310 proposta inicialmente já pertencia a outro container local; a porta 8090 solicitada para o phpMyAdmin pertence a `nexus_mail_dashboard`. Esses containers não foram alterados. O phpMyAdmin usa a rede do MySQL Node e login interativo por cookie, sem volume ou senha próprios. Senhas residem no `.env` local; a imagem da aplicação não as inclui. A URL MySQL é montada pelo Compose e fornecida ao Prisma no container. Em `prisma.config.ts`, uma URL vazia permite apenas gerar a imagem sem segredo; comandos que acessam o banco exigem `DATABASE_URL` configurada.
 
-Ainda não há reconciliação de alterações manuais no banco nem testes de concorrência. O modelo Prisma representa relações e unicidades, mas não exige que todo usuário tenha carteira quando criado fora da rotina transacional de cadastro. Chaves idempotentes usarão UUID canônico minúsculo para evitar diferenças de collation MySQL; o serviço futuro precisará comparar o conteúdo da solicitação, não apenas a chave.
+Ainda não há reconciliação de alterações manuais no banco nem entrada HTTP financeira. O modelo Prisma representa relações e unicidades, mas não exige que todo usuário tenha carteira quando criado fora da rotina transacional de cadastro. As chaves idempotentes exigem UUID canônico minúsculo para evitar diferenças de collation MySQL; o serviço compara ator e conteúdo, não apenas a chave. Os limites de retry e timeout merecem nova medição sob carga real. Consulte [Decisões técnicas](TECHNICAL_DECISIONS.md) para o histórico das escolhas.
 
 Referências técnicas: [Next.js App Router](https://nextjs.org/docs/app), [Prisma ORM 7 e MySQL](https://www.prisma.io/docs/orm/v7/core-concepts/supported-databases/mysql), [estado do Prisma 8](https://www.prisma.io/docs/orm/release-status), [Prisma BigInt](https://www.prisma.io/docs/orm/v7/reference/prisma-schema-reference) e [Node.js LTS](https://nodejs.org/en/about/previous-releases).

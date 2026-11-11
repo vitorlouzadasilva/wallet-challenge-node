@@ -1,6 +1,6 @@
-# Regras de negócio planejadas
+# Regras de negócio da carteira
 
-Este documento define o comportamento esperado da carteira simulada. **Cadastro, autenticação e consulta individual do saldo estão implementados**; os casos de uso financeiros virão depois.
+Este documento define o comportamento da carteira simulada. **Cadastro, autenticação, consulta individual do saldo e os casos de uso financeiros no serviço estão implementados**. A interface financeira virá depois.
 
 1. **Conta e carteira:** cada usuário cadastrado pela aplicação recebe uma carteira individual, criada na mesma transação. O banco impede carteiras duplicadas.
 2. **Centavos inteiros:** valores financeiros usam `BIGINT` assinado e `bigint` em TypeScript. Entradas decimais serão convertidas a partir de texto, sem ponto flutuante.
@@ -13,6 +13,6 @@ Este documento define o comportamento esperado da carteira simulada. **Cadastro,
 9. **Saldo negativo em reversões:** uma reversão autorizada poderá deixar a carteira debitada negativa. Transferências comuns continuarão exigindo saldo suficiente.
 10. **Idempotência:** cada solicitação financeira receberá chave única. Repetir a mesma chave, ator e dados não poderá repetir efeitos; reutilizar chave com conteúdo diferente deverá gerar conflito seguro.
 11. **Autorização:** usuários consultarão apenas o próprio saldo/extrato. Destinatários não poderão reverter transferências que não iniciaram. IDs, valores e participantes de uma reversão serão recuperados no servidor.
-12. **Limites:** valores e resultados precisam respeitar o intervalo de `BIGINT` assinado. O banco verifica valor positivo da operação e delta não nulo; o serviço futuro verificará saldo, participantes, estados e consistência de lançamentos.
+12. **Limites:** valores e resultados precisam respeitar o intervalo de `BIGINT` assinado. O banco verifica valor positivo da operação e delta não nulo; o serviço verifica saldo, participantes, estados e consistência de lançamentos.
 
-Para implementar essas regras, os serviços futuros usarão transações Prisma, bloqueios de linha quando necessários e testes de integração no MySQL. A interface e as rotas financeiras não fazem parte da infraestrutura inicial.
+`WalletService` aplica essas regras com transações Prisma, locks de linha e testes de integração no MySQL isolado. A interface e as Server Actions financeiras não fazem parte desta etapa; elas deverão obter o ator da sessão e converter a entrada monetária textual antes de chamar o serviço.
