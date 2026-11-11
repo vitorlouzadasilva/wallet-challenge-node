@@ -7,6 +7,9 @@ services:
       - "127.0.0.1:${APP_PORT:-3010}:3000"
     environment:
       DATABASE_URL: "mysql://${MYSQL_USER}:${MYSQL_PASSWORD:?Defina MYSQL_PASSWORD no .env}@mysql:3306/${MYSQL_DATABASE}"
+      TEST_DATABASE_URL: "mysql://${MYSQL_USER}:${MYSQL_PASSWORD:?Defina MYSQL_PASSWORD no .env}@mysql:3306/wallet_node_test"
+      APP_ORIGIN: "${APP_ORIGIN:-http://localhost:3010}"
+      TRUSTED_PROXY_IP_HEADER: "${TRUSTED_PROXY_IP_HEADER:-}"
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
       - .:/app

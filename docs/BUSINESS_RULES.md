@@ -1,8 +1,8 @@
 # Regras de negócio planejadas
 
-Este documento define o comportamento esperado da carteira simulada. **Nesta etapa somente o esquema e as restrições de banco estão implementados**; autenticação e casos de uso financeiros virão depois.
+Este documento define o comportamento esperado da carteira simulada. **Cadastro, autenticação e consulta individual do saldo estão implementados**; os casos de uso financeiros virão depois.
 
-1. **Conta e carteira:** cada usuário terá uma carteira individual. O banco impede carteiras duplicadas; a rotina futura de cadastro deverá criar ambos na mesma transação.
+1. **Conta e carteira:** cada usuário cadastrado pela aplicação recebe uma carteira individual, criada na mesma transação. O banco impede carteiras duplicadas.
 2. **Centavos inteiros:** valores financeiros usam `BIGINT` assinado e `bigint` em TypeScript. Entradas decimais serão convertidas a partir de texto, sem ponto flutuante.
 3. **Depósito:** exige valor positivo e credita somente a carteira do usuário autenticado. Deve somar ao saldo atual, inclusive quando negativo.
 4. **Transferência:** exige origem e destino diferentes, destinatário existente e saldo suficiente na origem no instante da escrita. A origem virá da sessão, nunca de um campo confiável do cliente.

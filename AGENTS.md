@@ -9,6 +9,7 @@
 - Escrever comentários em português apenas para regras de negócio e decisões arquiteturais relevantes. Evitar comentários que repetem o código.
 - Validar com TypeScript, ESLint, Vitest, Prisma e build. Testes financeiros futuros devem usar MySQL real e conexões independentes para concorrência.
 - Não versionar `.env`, credenciais, `node_modules`, arquivos gerados, logs ou dados persistentes do Docker.
-- Nesta etapa, implementar apenas infraestrutura, esquema, documentação e apresentação monetária. Não criar cadastro, login, depósito, transferência ou reversão funcionais.
+- Cadastro, login, logout e dashboard foram autorizados e implementados. Não criar depósito, transferência, reversão ou extrato funcional nesta etapa.
 - Não executar `docker compose down -v`, reset de migrations ou exclusão de volumes sem autorização.
 - O phpMyAdmin foi autorizado nesta etapa de infraestrutura: manter imagem oficial fixada, acesso somente em loopback e login interativo, sem credenciais no Compose.
+- Persistir sessões opacas e tentativas de login no MySQL. Consultas privadas devem validar a sessão no servidor; testes de integração devem usar apenas `wallet_node_test`.
