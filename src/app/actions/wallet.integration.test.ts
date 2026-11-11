@@ -15,6 +15,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { createAccount } from "@/lib/auth/account";
 import { currentFinancialActor } from "@/lib/auth/financial-actor";
+import { consumeFinancialAttempt } from "@/lib/auth/financial-rate-limit";
 import { createSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { WalletService } from "@/lib/wallet/wallet-service";
@@ -93,6 +94,23 @@ describe("Server Actions financeiras com MySQL isolado", () => {
     expect(await balance(owner.walletId)).toBe(1050n);
   });
 
+  it("limita ações financeiras por ator sem criar movimentações", async () => {
+    const owner = await user();
+    const other = await user();
+    cookieState.token = owner.token;
+    const before = await prisma.operation.count();
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      expect(await consumeFinancialAttempt(owner.id)).toBe(true);
+    }
+    const idempotencyKey = key();
+    const limited = await depositAction({ key: idempotencyKey, message: "" }, form(idempotencyKey, { amount: "1" }));
+    expect(limited.message).toContain("Muitas solicitações");
+    expect(limited.key).toBe(idempotencyKey);
+    expect(await prisma.operation.count()).toBe(before);
+    expect(await balance(owner.walletId)).toBe(0n);
+    expect(await consumeFinancialAttempt(other.id)).toBe(true);
+  });
+
   it("transfere por e-mail sem aceitar origem fornecida pelo navegador", async () => {
     const sender = await user();
     const recipient = await user();
@@ -147,6 +165,10 @@ describe("Server Actions financeiras com MySQL isolado", () => {
     const deniedKey = key();
     const denied = await reverseAction({ key: deniedKey, message: "", operationId: original.id.toString() }, form(deniedKey, { operationId: original.id.toString() }));
     expect(denied.message).toContain("indisponível");
+    const missingKey = key();
+    const missingId = "18446744073709551615";
+    const missing = await reverseAction({ key: missingKey, message: "", operationId: missingId }, form(missingKey, { operationId: missingId }));
+    expect(missing.message).toBe(denied.message);
     cookieState.token = owner.token;
     const reversalKey = key();
     const state = { key: reversalKey, message: "", operationId: original.id.toString() };
@@ -160,7 +182,7 @@ describe("Server Actions financeiras com MySQL isolado", () => {
     const secondKey = key();
     expect((await reverseAction({ key: secondKey, message: "", operationId: original.id.toString() }, form(secondKey, { operationId: original.id.toString() }))).message).toContain("revertida");
     const reversalOfReversalKey = key();
-    expect((await reverseAction({ key: reversalOfReversalKey, message: "", operationId: reversal.id.toString() }, form(reversalOfReversalKey, { operationId: reversal.id.toString() }))).message).toContain("inválida");
+    expect((await reverseAction({ key: reversalOfReversalKey, message: "", operationId: reversal.id.toString() }, form(reversalOfReversalKey, { operationId: reversal.id.toString() }))).message).toContain("indisponível");
     expect(await balance(owner.walletId)).toBe(0n);
     await ledgerMatches(owner.walletId);
   });

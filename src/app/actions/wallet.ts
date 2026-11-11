@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { currentFinancialActor } from "@/lib/auth/financial-actor";
+import { consumeFinancialAttempt } from "@/lib/auth/financial-rate-limit";
 import { normalizeEmail, validEmail } from "@/lib/auth/validation";
 import { parsePositiveReais } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
-import { WalletDomainError } from "@/lib/wallet/errors";
+import { InvalidOperation, UnauthorizedOperation, WalletDomainError } from "@/lib/wallet/errors";
 import { WalletService } from "@/lib/wallet/wallet-service";
 
 export type WalletFormState = {
@@ -18,6 +19,7 @@ export type WalletFormState = {
 };
 
 const service = new WalletService();
+const financialLimitMessage = "Muitas solicitações financeiras. Aguarde um minuto e tente novamente.";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -38,6 +40,7 @@ export async function depositAction(state: WalletFormState, formData: FormData):
   const actor = await currentFinancialActor();
   if (!actor) redirect("/login");
   const next = { ...state, amount: field(formData, "amount"), message: "" };
+  if (!(await consumeFinancialAttempt(actor.userId))) return { ...next, message: financialLimitMessage };
   if (!sameFormKey(state, formData)) return { ...next, message: "Formulário inválido. Atualize a página." };
   const amountCents = parsePositiveReais(next.amount);
   if (amountCents === null) return { ...next, message: "Informe um valor positivo em reais, como 10,50." };
@@ -59,6 +62,7 @@ export async function transferAction(state: WalletFormState, formData: FormData)
     ...state, amount: field(formData, "amount"),
     recipientEmail: field(formData, "recipientEmail"), message: "",
   };
+  if (!(await consumeFinancialAttempt(actor.userId))) return { ...next, message: financialLimitMessage };
   if (!sameFormKey(state, formData)) return { ...next, message: "Formulário inválido. Atualize a página." };
   const amountCents = parsePositiveReais(next.amount);
   if (amountCents === null) return { ...next, message: "Informe um valor positivo em reais, como 10,50." };
@@ -86,6 +90,7 @@ export async function reverseAction(state: WalletFormState, formData: FormData):
   if (!actor) redirect("/login");
   const operationId = field(formData, "operationId");
   const next = { ...state, message: "" };
+  if (!(await consumeFinancialAttempt(actor.userId))) return { ...next, message: financialLimitMessage };
   if (!sameFormKey(state, formData) || operationId !== state.operationId) {
     return { ...next, message: "Formulário inválido. Atualize a página." };
   }
@@ -97,6 +102,10 @@ export async function reverseAction(state: WalletFormState, formData: FormData):
   try {
     completedId = (await service.reverse({ actor, originalOperationId: BigInt(operationId), idempotencyKey: state.key })).id;
   } catch (error) {
+    // Resposta igual para ID inexistente e operação de terceiro, sem revelar sua existência.
+    if (error instanceof InvalidOperation || error instanceof UnauthorizedOperation) {
+      return { ...next, message: "Operação indisponível." };
+    }
     return formError(next, error);
   }
   revalidatePath("/dashboard");

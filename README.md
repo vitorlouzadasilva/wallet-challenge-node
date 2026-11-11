@@ -9,7 +9,7 @@ Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É
 - Bcrypt para senhas e sessões opacas persistidas no MySQL.
 - ESLint com configuração oficial do Next.js. Versões diretas fixadas em `package.json` e árvore resolvida em `package-lock.json`.
 
-O Next.js reúne interface e rotas de servidor no mesmo projeto. **NestJS não foi adicionado** porque acrescentaria outro processo e outra estrutura para um desafio que pode ser atendido com o App Router. As regras financeiras ficam em uma camada de casos de uso separada dos componentes de interface. Prisma 7 foi escolhido porque a linha 8 ainda não oferece MySQL estável nesta data.
+O Next.js reúne interface e rotas de servidor no mesmo projeto. **NestJS não foi adicionado** porque acrescentaria outro processo e outra estrutura para um desafio que pode ser atendido com o App Router. As regras financeiras ficam em uma camada de casos de uso separada dos componentes de interface. A versão do Prisma usada pelo projeto está fixada no manifesto e no lockfile.
 
 ## Requisitos e inicialização
 
@@ -25,7 +25,7 @@ docker compose exec app npm run db:migrate
 docker compose exec app npm run db:generate
 ```
 
-O arquivo `.env` local preparado nesta máquina já contém senhas próprias; preserve-o se for reutilizar esta instalação. Em uma instalação nova, `prisma migrate deploy` aplica as migrations versionadas sem apagar dados. O MySQL usa volume próprio deste Compose.
+Se já existir um `.env` local, preserve suas credenciais ao repetir a instalação. Em uma instalação nova, `prisma migrate deploy` aplica as migrations versionadas sem apagar dados. O MySQL usa volume próprio deste Compose.
 
 Abra **http://localhost:3010**. O MySQL aceita conexões externas somente em `127.0.0.1:3311`, com o usuário de desenvolvimento configurado no `.env`. A aplicação usa `mysql:3306` na rede interna. Este Compose tem nome `wallet-node` e não utiliza containers, portas ou volumes de `wallet-php`.
 
@@ -98,6 +98,8 @@ As senhas usam bcrypt com custo 12 e limite de 72 bytes. O cookie contém apenas
 
 O login limita tentativas por identidade e por um limite global persistido no banco. A chave por IP só é ativada se `TRUSTED_PROXY_IP_HEADER=x-forwarded-for` for configurado **atrás de um proxy confiável que substitui esse cabeçalho**. Na instalação local direta, cabeçalhos de IP enviados pelo cliente não são usados. As Server Actions mantêm a proteção de origem e CSRF do Next.js sem ampliar `allowedOrigins`.
 
+Depósito, transferência e reversão compartilham um limite de **30 envios por minuto por usuário autenticado**, persistido no MySQL. Ao atingir o limite, aguarde um minuto e reenvie o mesmo formulário com a mesma chave. A limitação reduz o abuso das ações; a idempotência do serviço e a restrição única do banco continuam impedindo movimentos duplicados. Reenvios também contam para esse limite.
+
 ## Limitações desta etapa
 
 - Cadastro, login, dashboard, serviço financeiro, formulários e extrato estão implementados. Não há integrações bancárias reais, PIX ou recuperação de senha.
@@ -105,6 +107,8 @@ O login limita tentativas por identidade e por um limite global persistido no ba
 - O banco aplica FKs, unicidade e restrições monetárias; o serviço aplica saldo, autorização e estados, mas escritas manuais no banco podem contornar essas regras.
 - Há testes reais de concorrência para os cenários selecionados; carga elevada e todos os interleavings possíveis permanecem em validação. Não há integração bancária real.
 - Sem proxy confiável, não há limite individual por IP; o limite global pode afetar outros usuários se alguém esgotá-lo. Uma implantação pública deve acrescentar proteção de borda e configurar origem/cabeçalhos confiáveis.
+- O cadastro não possui limite próprio de frequência. O ambiente Compose publica a aplicação somente em `127.0.0.1`; uma exposição pública exigiria limite de cadastro e proteção adicional de borda.
+- O cadastro informa quando um e-mail já está em uso; na transferência, as respostas também podem permitir inferir se uma conta existe. Antes de uma publicação pública, revisar essas mensagens conforme a política de privacidade pretendida.
 - A auditoria npm desta instalação apontou sete avisos moderados em dependências transitivas do ESLint; `npm audit --omit=dev` não apontou vulnerabilidades em dependências de produção. A cadeia depende de atualização compatível das ferramentas de desenvolvimento.
 
 Esta configuração é de desenvolvimento local. Uma implantação pública exigirá gestão de segredos, TLS, políticas de acesso e observabilidade apropriadas.

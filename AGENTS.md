@@ -15,3 +15,4 @@
 - O phpMyAdmin foi autorizado nesta etapa de infraestrutura: manter imagem oficial fixada, acesso somente em loopback e login interativo, sem credenciais no Compose.
 - Persistir sessões opacas e tentativas de login no MySQL. Consultas privadas devem validar a sessão no servidor; testes de integração devem usar apenas `wallet_node_test`.
 - Server Actions financeiras devem validar a sessão e os campos recebidos. Manter a chave idempotente entre tentativas do mesmo formulário, derivar o extrato dos lançamentos da própria carteira e não confiar em botões como autorização.
+- Limitar chamadas financeiras por ator validado sem depender de cabeçalhos de IP fornecidos pelo cliente. Não tratar o limite como substituto da idempotência ou da autorização do serviço.

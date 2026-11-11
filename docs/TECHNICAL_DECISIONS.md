@@ -152,8 +152,8 @@ Registro inicial para apresentação e code review. As decisões abaixo descreve
 - **Solução:** ações `depositAction`, `transferAction` e `reverseAction` validam entrada, chamam `WalletService`, revalidam o dashboard e redirecionam com o ID da operação confirmada. A mensagem consulta a operação do ator autenticado.
 - **Alternativas consideradas:** criar Route Handlers para esses formulários não foi necessário nesta etapa; a autenticação já usa Server Actions.
 - **Justificativa:** mantém o padrão de entrada existente e separa a interface do caso de uso.
-- **Consequências e limites:** ações podem ser chamadas pela rede sem usar o formulário; cada uma valida a sessão e os campos. Os testes diretos não equivalem a testes HTTP ponta a ponta.
-- **Arquivos:** `src/app/actions/wallet.ts`, `src/app/dashboard/wallet-forms.tsx`.
+- **Consequências e limites:** ações podem ser chamadas pela rede sem usar o formulário; cada uma valida a sessão e os campos. Um limite de 30 envios financeiros por minuto e por ator usa a tabela `login_attempts`, sem nova migration. Reenvios também contam; testes diretos não equivalem a testes HTTP ponta a ponta.
+- **Arquivos:** `src/app/actions/wallet.ts`, `src/lib/auth/financial-rate-limit.ts`, `src/app/dashboard/wallet-forms.tsx`.
 
 ## 18. Conversão monetária textual
 
