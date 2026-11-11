@@ -1,0 +1,2 @@
+# Este arquivo fixa o provider das migrations Prisma.
+provider = "mysql"

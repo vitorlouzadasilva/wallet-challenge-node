@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum OperationType {
+  deposit
+  transfer
+  reversal
+}
+
+enum OperationStatus {
+  completed
+  reversed
+}
+
+model User {
+  id                  BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  name                String      @db.VarChar(255)
+  email               String      @unique @db.VarChar(255)
+  passwordHash        String      @map("password_hash") @db.VarChar(255)
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+  wallet              Wallet?
+  initiatedOperations Operation[] @relation("InitiatedOperations")
+
+  @@map("users")
+}
+
+model Wallet {
+  id                    BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  userId                BigInt        @unique @map("user_id") @db.UnsignedBigInt
+  balanceCents          BigInt        @default(0) @map("balance_cents") @db.BigInt
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceOperations      Operation[]   @relation("SourceWallet")
+  destinationOperations Operation[]   @relation("DestinationWallet")
+  ledgerEntries         LedgerEntry[]
+
+  @@map("wallets")
+}
+
+model Operation {
+  id                    BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  initiatedByUserId     BigInt           @map("initiated_by_user_id") @db.UnsignedBigInt
+  type                  OperationType
+  status                OperationStatus  @default(completed)
+  amountCents           BigInt           @map("amount_cents") @db.BigInt
+  sourceWalletId        BigInt?          @map("source_wallet_id") @db.UnsignedBigInt
+  destinationWalletId   BigInt?          @map("destination_wallet_id") @db.UnsignedBigInt
+  idempotencyKey        String           @unique @map("idempotency_key") @db.VarChar(128)
+  reversalOfOperationId BigInt?          @unique @map("reversal_of_operation_id") @db.UnsignedBigInt
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  initiatedByUser       User             @relation("InitiatedOperations", fields: [initiatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceWallet          Wallet?          @relation("SourceWallet", fields: [sourceWalletId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  destinationWallet     Wallet?          @relation("DestinationWallet", fields: [destinationWalletId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  originalOperation     Operation?       @relation("Reversals", fields: [reversalOfOperationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reversal              Operation?       @relation("Reversals")
+  ledgerEntries         LedgerEntry[]
+
+  @@index([initiatedByUserId, createdAt])
+  @@index([sourceWalletId, createdAt])
+  @@index([destinationWalletId, createdAt])
+  @@map("operations")
+}
+
+model LedgerEntry {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  operationId BigInt    @map("operation_id") @db.UnsignedBigInt
+  walletId    BigInt    @map("wallet_id") @db.UnsignedBigInt
+  deltaCents  BigInt    @map("delta_cents") @db.BigInt
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  wallet      Wallet    @relation(fields: [walletId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([operationId, walletId])
+  @@index([walletId, createdAt])
+  @@map("ledger_entries")
+}
