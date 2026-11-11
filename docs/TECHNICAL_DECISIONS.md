@@ -1,6 +1,6 @@
 # Decisões técnicas — Wallet Node
 
-Registro inicial para apresentação e code review. As decisões abaixo descrevem o que foi de fato escolhido nas etapas concluídas. Quando uma alternativa não foi avaliada, isso é indicado explicitamente. Este documento será refinado na revisão final.
+Registro para apresentação e code review. As 22 decisões abaixo descrevem o que foi de fato escolhido nas etapas concluídas. Quando uma alternativa não foi avaliada, isso é indicado explicitamente. A instalação isolada e seus limites estão resumidos no README.
 
 ## 1. Node.js 24 LTS
 

@@ -15,10 +15,15 @@ O Next.js reúne interface e rotas de servidor no mesmo projeto. **NestJS não f
 
 Use Docker Desktop com backend Linux e Docker Compose. As portas `3010`, `3311` e `8091` devem estar livres. Não é necessário ter Node.js instalado no Windows: a imagem oficial Node 24 executa npm e a aplicação.
 
-No diretório `wallet-node`, crie o ambiente local e preencha `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD` com senhas fortes, distintas e exclusivas do desenvolvimento. Para a URL de conexão construída pelo Compose, use caracteres seguros para URL (letras, números, `-` e `_`). O `.env` é ignorado pelo Git.
+No diretório `wallet-node`, crie o arquivo de ambiente local:
 
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Antes de executar o Docker, abra `.env` e preencha `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD` com senhas fortes, distintas e exclusivas do desenvolvimento. Para a URL de conexão construída pelo Compose, use caracteres seguros para URL (letras, números, `-` e `_`). O `.env` é ignorado pelo Git. Em seguida:
+
+```powershell
 docker compose config --quiet
 docker compose up -d --build --wait
 docker compose exec app npm run db:migrate
@@ -71,7 +76,14 @@ O MySQL bloqueia as carteiras com `SELECT ... FOR UPDATE` em ordem crescente de 
 
 ## Validações e testes
 
-Execute os comandos dentro do container:
+Para os testes de integração, prepare **uma vez** o banco separado `wallet_node_test`. Abra o cliente MySQL no container com `docker compose exec mysql mysql -u root -p`, informe a senha root definida no seu `.env` e execute:
+
+```sql
+CREATE DATABASE IF NOT EXISTS wallet_node_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON wallet_node_test.* TO 'wallet_node_dev'@'%';
+```
+
+Se `MYSQL_USER` for diferente de `wallet_node_dev`, substitua o nome no `GRANT`. Depois execute as verificações dentro do container:
 
 ```powershell
 docker compose exec app npm run db:validate
@@ -83,14 +95,13 @@ docker compose exec app npm run test:integration
 docker compose exec app npm run build
 ```
 
-`npm test` roda testes unitários sem gravar no banco. `npm run test:integration` recusa o banco de desenvolvimento, aplica migrations somente em `wallet_node_test` e executa cenários reais de autenticação e operações financeiras. Inclui disputas simultâneas com dois Prisma Clients independentes. Para preparar esse banco uma vez, abra o cliente MySQL local com `docker compose exec mysql mysql -u root -p`, informe a senha root local e execute:
+`npm test` roda testes unitários sem gravar no banco. `npm run test:integration` recusa o banco de desenvolvimento, aplica migrations somente em `wallet_node_test` e executa cenários reais de autenticação e operações financeiras. Inclui disputas simultâneas com dois Prisma Clients independentes. Os testes acrescentam registros com e-mails aleatórios somente ao banco de teste; não executam reset. As migrations ficam em `prisma/migrations`; não use `migrate reset` nem remova o volume MySQL para repetir as validações.
 
-```sql
-CREATE DATABASE IF NOT EXISTS wallet_node_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON wallet_node_test.* TO 'wallet_node_dev'@'%';
-```
+### Instalação isolada verificada
 
-Se `MYSQL_USER` for diferente de `wallet_node_dev`, substitua o nome no `GRANT`. Os testes acrescentam registros com e-mails aleatórios somente ao banco de teste; não executam reset. As migrations ficam em `prisma/migrations`; não use `migrate reset` nem remova o volume MySQL para repetir as validações.
+Em 11/11/2026, a sequência foi repetida em um clone local sem `.env` nem `node_modules` herdados. Um projeto Compose próprio, com credenciais e volumes novos, usou as portas alternativas `13010`, `13311` e `18091`, sempre em `127.0.0.1`. O Dockerfile concluiu `npm ci`; as duas migrations foram aplicadas tanto no banco novo da aplicação quanto no banco de testes isolado. Prisma Client, validação do schema, TypeScript, ESLint, 7 testes unitários, 38 testes de integração e build Next.js passaram. Home, cadastro, login e phpMyAdmin responderam com HTTP 200; o dashboard sem sessão redirecionou ao login.
+
+Essa verificação usou a imagem base disponível no cache local e acesso ao registro de pacotes. Não é prova de reprodução bit a bit em outra máquina. Os testes de Server Actions usam MySQL real com recursos do Next.js simulados; não foi automatizado um fluxo financeiro HTTP completo no clone. A demonstração visual da aplicação principal foi validada separadamente.
 
 ### Segurança da sessão
 
