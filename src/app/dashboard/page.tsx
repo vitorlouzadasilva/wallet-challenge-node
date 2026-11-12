@@ -67,6 +67,7 @@ export default async function DashboardPage({ searchParams }: Props) {
               <li key={item.id} className="statement-item">
                 <div className="statement-main">
                   <strong>{item.label}</strong>
+                  {item.counterparty && <span>{item.counterparty}</span>}
                   <span>{item.date} · {item.detail}</span>
                   <small>Situação: {item.status === "reversed" ? "Revertida" : "Concluída"}</small>
                 </div>

@@ -11,6 +11,7 @@ export type StatementItem = {
   date: string;
   label: string;
   detail: string;
+  counterparty: string | null;
   amount: string;
   credit: boolean;
   status: "completed" | "reversed";
@@ -61,6 +62,8 @@ export async function loadStatement(actor: FinancialActor, requestedPage: number
       operation: { select: {
         id: true, type: true, status: true, initiatedByUserId: true,
         originalOperation: { select: { type: true } },
+        sourceWallet: { select: { user: { select: { name: true } } } },
+        destinationWallet: { select: { user: { select: { name: true } } } },
       } },
     },
   });
@@ -79,6 +82,10 @@ export async function loadStatement(actor: FinancialActor, requestedPage: number
         date: new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(entry.createdAt),
         label,
         detail: `Operação #${operation.id.toString()}`,
+        counterparty: operation.type === "transfer"
+          ? credit ? `De: ${operation.sourceWallet?.user.name ?? "Usuário indisponível"}`
+            : `Para: ${operation.destinationWallet?.user.name ?? "Usuário indisponível"}`
+          : null,
         amount: formatCents(entry.deltaCents),
         credit,
         status: operation.status,

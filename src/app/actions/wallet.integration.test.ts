@@ -190,6 +190,8 @@ describe("Server Actions financeiras com MySQL isolado", () => {
   it("mostra extrato exclusivo, sinal real da reversão e paginação", async () => {
     const owner = await user();
     const recipient = await user();
+    await prisma.user.update({ where: { id: owner.id }, data: { name: "Alice Origem" } });
+    await prisma.user.update({ where: { id: recipient.id }, data: { name: "Bob Destino" } });
     cookieState.token = owner.token;
     const actor = await currentFinancialActor();
     if (!actor) throw new Error("Ator de teste indisponível.");
@@ -205,18 +207,23 @@ describe("Server Actions financeiras com MySQL isolado", () => {
     expect(first.items).toHaveLength(10);
     expect(second.items).toHaveLength(3);
     expect([...first.items, ...second.items].find((item) => item.label === "Reversão de transferência")).toMatchObject({ credit: true, amount: "R$ 0,01", canReverse: false });
-    expect([...first.items, ...second.items].find((item) => item.label === "Transferência enviada")).toMatchObject({ credit: false, amount: "-R$ 0,01", canReverse: false });
+    expect([...first.items, ...second.items].find((item) => item.label === "Transferência enviada")).toMatchObject({ credit: false, amount: "-R$ 0,01", canReverse: false, counterparty: "Para: Bob Destino" });
+    expect([...first.items, ...second.items].find((item) => item.label === "Depósito")?.counterparty).toBeNull();
     cookieState.token = recipient.token;
     const recipientActor = await currentFinancialActor();
     if (!recipientActor) throw new Error("Ator destinatário indisponível.");
     const received = await loadStatement(recipientActor, 1);
     expect(received.total).toBe(2);
-    expect(received.items.find((item) => item.label === "Transferência recebida")).toMatchObject({ credit: true, canReverse: false });
+    expect(received.items.find((item) => item.label === "Transferência recebida")).toMatchObject({ credit: true, canReverse: false, counterparty: "De: Alice Origem" });
     expect(received.items.find((item) => item.label === "Reversão de transferência")).toMatchObject({ credit: false, amount: "-R$ 0,01" });
     expect(statementPage("2")).toBe(2);
     expect(statementPage("999999999999999999")).toBe(1);
     await ledgerMatches(owner.walletId);
     await ledgerMatches(recipient.walletId);
+    await user();
+    const outsiderActor = await currentFinancialActor();
+    if (!outsiderActor) throw new Error("Ator de teste indisponível.");
+    expect((await loadStatement(outsiderActor, 1)).items).toEqual([]);
   });
 
   it("permite saldo negativo após reversão de transferência solicitada pela ação", async () => {

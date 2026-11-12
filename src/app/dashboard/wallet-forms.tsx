@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { maskReaisInput, pasteReaisInput } from "@/lib/money-input";
 import { depositAction, reverseAction, transferAction, type WalletFormState } from "@/app/actions/wallet";
 
 export function DepositForm({ idempotencyKey }: { idempotencyKey: string }) {
@@ -10,8 +11,9 @@ export function DepositForm({ idempotencyKey }: { idempotencyKey: string }) {
       <input type="hidden" name="idempotencyKey" value={state.key} />
       <div className="form-field">
         <label htmlFor="deposit-amount">Valor do depósito</label>
-        <input id="deposit-amount" name="amount" type="text" inputMode="decimal" autoComplete="off" placeholder="10,50" maxLength={20} required defaultValue={state.amount} />
-        <p className="field-hint">Exemplo: 10,50</p>
+        <input id="deposit-amount" name="amount" type="text" inputMode="decimal" autoComplete="off" placeholder="10,50" maxLength={20} required defaultValue={state.amount}
+          onInput={(event) => maskReaisInput(event.currentTarget)} onPaste={pasteReaisInput} aria-describedby="deposit-help" />
+        <p id="deposit-help" className="field-hint">Digite os números: 1050 vira 10,50. Para colar, use 10,50, sem separador de milhares.</p>
       </div>
       {state.message && <p className="form-error" role="alert">{state.message}</p>}
       <button className="button button-primary" type="submit" disabled={pending}>{pending ? "Processando..." : "Depositar"}</button>
@@ -30,8 +32,9 @@ export function TransferForm({ idempotencyKey }: { idempotencyKey: string }) {
       </div>
       <div className="form-field">
         <label htmlFor="transfer-amount">Valor da transferência</label>
-        <input id="transfer-amount" name="amount" type="text" inputMode="decimal" autoComplete="off" placeholder="10,50" maxLength={20} required defaultValue={state.amount} />
-        <p className="field-hint">Exemplo: 10,50</p>
+        <input id="transfer-amount" name="amount" type="text" inputMode="decimal" autoComplete="off" placeholder="10,50" maxLength={20} required defaultValue={state.amount}
+          onInput={(event) => maskReaisInput(event.currentTarget)} onPaste={pasteReaisInput} aria-describedby="transfer-help" />
+        <p id="transfer-help" className="field-hint">Digite os números: 1050 vira 10,50. Para colar, use 10,50, sem separador de milhares.</p>
       </div>
       {state.message && <p className="form-error" role="alert">{state.message}</p>}
       <button className="button button-primary" type="submit" disabled={pending}>{pending ? "Processando..." : "Transferir"}</button>

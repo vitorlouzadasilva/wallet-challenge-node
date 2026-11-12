@@ -42,9 +42,13 @@ As páginas são `/`, `/register`, `/login` e `/dashboard`. Cadastro, login, log
 
 ### Movimentar a carteira
 
+Os campos de depósito e transferência possuem máscara em JavaScript: digite `1050` para obter `10,50`. Ao colar, use o valor em reais (`10`, `10,5` ou `10,50`), sem símbolo ou separador de milhares. A máscara usa strings e mantém a validação monetária no servidor. Os testes da máscara fazem parte de `npm test`.
+
 No dashboard, informe um valor como `10,50` no formulário **Depositar** para creditar sua própria carteira. Para **Transferir**, informe o e-mail de outro usuário cadastrado e o valor. O extrato mostra dez lançamentos por página, incluindo entradas, saídas e reversões. O iniciador de um depósito ou transferência concluído pode escolher **Reverter** e confirmar a solicitação; uma reversão de transferência pode deixar o destinatário com saldo negativo.
 
 Cada novo formulário recebe um UUID no servidor. Se a validação falhar, a mesma chave permanece no formulário; repetir um envio já confirmado retorna o resultado anterior sem novo efeito. Após sucesso, o navegador retorna ao dashboard atualizado. Os campos de valor aceitam reais sem separador de milhares e até duas casas decimais, por exemplo `10`, `10,5`, `10,50` e `0,01`.
+
+O extrato identifica o destinatário nas transferências enviadas (`Para: nome`) e o remetente nas recebidas (`De: nome`), preservando a referência da operação. O nome exibido é o atual do cadastro, não uma cópia histórica; somente lançamentos da própria carteira são consultados.
 
 ### Inspecionar o banco com phpMyAdmin
 
