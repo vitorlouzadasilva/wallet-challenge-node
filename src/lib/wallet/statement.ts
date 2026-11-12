@@ -60,7 +60,7 @@ export async function loadStatement(actor: FinancialActor, requestedPage: number
     select: {
       id: true, deltaCents: true, createdAt: true,
       operation: { select: {
-        id: true, type: true, status: true, initiatedByUserId: true,
+        id: true, type: true, status: true, initiatedByUserId: true, reversalOfOperationId: true,
         originalOperation: { select: { type: true } },
         sourceWallet: { select: { user: { select: { name: true } } } },
         destinationWallet: { select: { user: { select: { name: true } } } },
@@ -79,9 +79,9 @@ export async function loadStatement(actor: FinancialActor, requestedPage: number
       return {
         id: entry.id.toString(),
         operationId: operation.id.toString(),
-        date: new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(entry.createdAt),
+        date: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(entry.createdAt),
         label,
-        detail: `Operação #${operation.id.toString()}`,
+        detail: `Operação #${operation.id.toString()}${operation.reversalOfOperationId === null ? "" : ` · Ref. #${operation.reversalOfOperationId.toString()}`}`,
         counterparty: operation.type === "transfer"
           ? credit ? `De: ${operation.sourceWallet?.user.name ?? "Usuário indisponível"}`
             : `Para: ${operation.destinationWallet?.user.name ?? "Usuário indisponível"}`

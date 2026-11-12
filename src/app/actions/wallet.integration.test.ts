@@ -207,6 +207,7 @@ describe("Server Actions financeiras com MySQL isolado", () => {
     expect(first.items).toHaveLength(10);
     expect(second.items).toHaveLength(3);
     expect([...first.items, ...second.items].find((item) => item.label === "Reversão de transferência")).toMatchObject({ credit: true, amount: "R$ 0,01", canReverse: false });
+    expect(first.items.find((item) => item.label === "Reversão de transferência")?.detail).toContain(` · Ref. #${transfer.id.toString()}`);
     expect([...first.items, ...second.items].find((item) => item.label === "Transferência enviada")).toMatchObject({ credit: false, amount: "-R$ 0,01", canReverse: false, counterparty: "Para: Bob Destino" });
     expect([...first.items, ...second.items].find((item) => item.label === "Depósito")?.counterparty).toBeNull();
     cookieState.token = recipient.token;

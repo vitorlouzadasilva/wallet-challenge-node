@@ -1,4 +1,5 @@
-# Wallet Node
+# Wallet Node — carteira financeira
+# Autor - Vitor Louzada da Silva
 
 Aplicação independente do desafio Fullstack Node do Grupo Adriano Cobuccio. É possível criar uma conta, entrar, consultar o saldo da própria carteira, depositar, transferir por e-mail, consultar o extrato e solicitar reversões elegíveis.
 
@@ -40,6 +41,36 @@ Abra a página inicial, escolha **Criar conta** e informe nome, e-mail, senha co
 
 As páginas são `/`, `/register`, `/login` e `/dashboard`. Cadastro, login, logout e movimentações usam Server Actions do Next.js. O dashboard redireciona visitantes para `/login`.
 
+A identidade visual Node usa azul como cor principal. A navbar compartilhada mostra **Início, Entrar e Criar conta** para visitantes e **Início, Minha carteira e Sair** após autenticação, com menu recolhível em telas pequenas. Créditos, débitos e mensagens preservam suas cores de significado financeiro.
+
+A home segue a mesma apresentação da versão PHP: introdução “Sua carteira, com mais clareza”, ações de acesso conforme a sessão e cartão “Primeiros passos” com três etapas. O grid se organiza em duas colunas no desktop e uma em telas menores, com rodapé compartilhado.
+
+No modo de desenvolvimento, `allowedDevOrigins` é derivada do hostname de `APP_ORIGIN`, mantendo `localhost` e `127.0.0.1`. Não há curingas nem alteração em `serverActions.allowedOrigins`. Prefira manter o mesmo endereço durante o login, pois cookies de `localhost`, IPs e domínios são distintos. Se a página abrir, mas máscaras ou menu não responderem, `docker compose exec app npm run test:dev-assets` verifica por HTTP se três scripts carregam na origem configurada e nas origens locais e se uma origem externa continua bloqueada. Esse check requer o servidor `next dev` ativo e não executa movimentações financeiras.
+
+### Configurar endereço em outra máquina
+
+Ao instalar na máquina do avaliador para uso local, os padrões `APP_PORT=3010`, `APP_BIND_ADDRESS=127.0.0.1` e `APP_ORIGIN=http://localhost:3010` já funcionam. Se a porta estiver ocupada, ajuste `APP_PORT` e a porta de `APP_ORIGIN` no `.env` local, por exemplo `APP_PORT=4010` e `APP_ORIGIN=http://localhost:4010`.
+
+Para permitir revisão por outro computador da mesma rede, configure explicitamente a interface da máquina que executa Docker e o endereço que será usado no navegador. Exemplo, substituindo o IP pelo da sua máquina:
+
+```dotenv
+APP_BIND_ADDRESS=192.168.1.50
+APP_PORT=3010
+APP_ORIGIN=http://192.168.1.50:3010
+```
+
+`APP_BIND_ADDRESS` define onde a aplicação é publicada; `APP_ORIGIN` define sua URL pública, incluindo protocolo e porta, sem subdiretório, query ou credenciais. Ao usar um domínio, ele deve resolver para a máquina da aplicação. A mudança é optativa: o padrão continua restrito ao acesso local, e MySQL/phpMyAdmin continuam em loopback. O acesso em rede depende também da conectividade e do firewall do host.
+
+Após alterar essas variáveis, recrie **somente** o serviço da aplicação para aplicar o ambiente atualizado:
+
+```powershell
+docker compose config --quiet
+docker compose up -d --no-deps app
+docker compose exec app npm run test:dev-assets
+```
+
+Espere o Next indicar `Ready` antes do check. `docker compose restart` sozinho não atualiza variáveis de ambiente do container. Não é necessário editar código, remover volumes nem recriar o MySQL. `APP_ORIGIN=https://...` habilita cookies `Secure` e exige acesso HTTPS real. Esta configuração prepara a revisão em desenvolvimento; uma publicação de produção usa build e `next start`, com proxy/HTTPS configurados conforme o ambiente.
+
 ### Movimentar a carteira
 
 Os campos de depósito e transferência possuem máscara em JavaScript: digite `1050` para obter `10,50`. Ao colar, use o valor em reais (`10`, `10,5` ou `10,50`), sem símbolo ou separador de milhares. A máscara usa strings e mantém a validação monetária no servidor. Os testes da máscara fazem parte de `npm test`.
@@ -49,6 +80,8 @@ No dashboard, informe um valor como `10,50` no formulário **Depositar** para cr
 Cada novo formulário recebe um UUID no servidor. Se a validação falhar, a mesma chave permanece no formulário; repetir um envio já confirmado retorna o resultado anterior sem novo efeito. Após sucesso, o navegador retorna ao dashboard atualizado. Os campos de valor aceitam reais sem separador de milhares e até duas casas decimais, por exemplo `10`, `10,5`, `10,50` e `0,01`.
 
 O extrato identifica o destinatário nas transferências enviadas (`Para: nome`) e o remetente nas recebidas (`De: nome`), preservando a referência da operação. O nome exibido é o atual do cadastro, não uma cópia histórica; somente lançamentos da própria carteira são consultados.
+
+A apresentação segue as colunas **Data | Movimento | Situação | Valor | Ação**, com a referência da original nas reversões. Em telas pequenas, a tabela permite rolagem horizontal e mantém a paginação de dez lançamentos.
 
 ### Inspecionar o banco com phpMyAdmin
 
@@ -115,15 +148,7 @@ O login limita tentativas por identidade e por um limite global persistido no ba
 
 Depósito, transferência e reversão compartilham um limite de **30 envios por minuto por usuário autenticado**, persistido no MySQL. Ao atingir o limite, aguarde um minuto e reenvie o mesmo formulário com a mesma chave. A limitação reduz o abuso das ações; a idempotência do serviço e a restrição única do banco continuam impedindo movimentos duplicados. Reenvios também contam para esse limite.
 
-## Limitações desta etapa
+## Documentação técnica
 
-- Cadastro, login, dashboard, serviço financeiro, formulários e extrato estão implementados. Não há integrações bancárias reais, PIX ou recuperação de senha.
-- O cadastro cria a carteira junto com o usuário na mesma transação; cadastros externos ao fluxo ainda podem criar usuários sem carteira.
-- O banco aplica FKs, unicidade e restrições monetárias; o serviço aplica saldo, autorização e estados, mas escritas manuais no banco podem contornar essas regras.
-- Há testes reais de concorrência para os cenários selecionados; carga elevada e todos os interleavings possíveis permanecem em validação. Não há integração bancária real.
-- Sem proxy confiável, não há limite individual por IP; o limite global pode afetar outros usuários se alguém esgotá-lo. Uma implantação pública deve acrescentar proteção de borda e configurar origem/cabeçalhos confiáveis.
-- O cadastro não possui limite próprio de frequência. O ambiente Compose publica a aplicação somente em `127.0.0.1`; uma exposição pública exigiria limite de cadastro e proteção adicional de borda.
-- O cadastro informa quando um e-mail já está em uso; na transferência, as respostas também podem permitir inferir se uma conta existe. Antes de uma publicação pública, revisar essas mensagens conforme a política de privacidade pretendida.
-- A auditoria npm desta instalação apontou sete avisos moderados em dependências transitivas do ESLint; `npm audit --omit=dev` não apontou vulnerabilidades em dependências de produção. A cadeia depende de atualização compatível das ferramentas de desenvolvimento.
-
-Esta configuração é de desenvolvimento local. Uma implantação pública exigirá gestão de segredos, TLS, políticas de acesso e observabilidade apropriadas.
+- [Arquitetura](docs/ARCHITECTURE.md) descreve camadas, entidades, transações e integração HTTP.
+- [Regras de negócio](docs/BUSINESS_RULES.md) registra o contrato financeiro implementado.
