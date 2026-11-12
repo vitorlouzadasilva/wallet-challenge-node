@@ -103,7 +103,7 @@ Para iniciar todos os serviços em uma instalação nova, use `docker compose up
 
 Valores e IDs financeiros usam `BIGINT` no MySQL e `bigint` no JavaScript. `balance_cents` e `delta_cents` são assinados, permitindo saldo negativo; `amount_cents` é positivo. `bigint` não pode ser enviado diretamente a `JSON.stringify`: componentes interativos recebem IDs como **strings decimais**. `src/lib/money.ts` converte e apresenta centavos sem ponto flutuante, com testes de limites.
 
-Consulte [Arquitetura](docs/ARCHITECTURE.md), [Regras de negócio](docs/BUSINESS_RULES.md) e [Decisões técnicas](docs/TECHNICAL_DECISIONS.md) para os contratos atuais e os próximos passos.
+Consulte [Arquitetura](docs/ARCHITECTURE.md) e [Regras de negócio](docs/BUSINESS_RULES.md) para os contratos atuais e os próximos passos.
 
 ## Núcleo financeiro no servidor
 
